@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse" style="min-height: 100vh;">
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white active" href="admin-dashboard.html">
+                                <i class="fas fa-home"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="manage-products.html">
+                                <i class="fas fa-box"></i> Products
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="#">
+                                <i class="fas fa-shopping-cart"></i> Orders
+                            </a>
+                        </li>
+                        <!-- Add this to the sidebar navigation -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="manage-users.html">
+                                <i class="fas fa-users"></i> Users
+                            </a>
+                        </li>
+                            <li class="nav-item mt-auto">
+                                <a class="nav-link text-white" href="#" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <!-- Add after the dashboard title -->
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1>Dashboard</h1>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterData('7days')">Last 7 Days</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterData('30days')">Last 30 Days</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterData('all')">All Time</button>
+                    </div>
+                </div>
+
+                <!-- Update the script section -->
+                <script>
+                    // Add this at the beginning of your script
+                    function checkAdminAuth() {
+                        const isAuthenticated = localStorage.getItem('adminAuthenticated') === 'true';
+                        if (!isAuthenticated) {
+                            window.location.href = 'admin-login.html';
+                        }
+                    }
+
+                    // Check authentication when page loads
+                    checkAdminAuth();
+
+                    // Add a logout function
+                    function logout() {
+                        localStorage.removeItem('adminAuthenticated');
+                        window.location.href = 'admin-login.html';
+                    }
+
+                    // Add date filtering function
+                    function filterData(period) {
+                        const currentDate = new Date();
+                        const orders = JSON.parse(localStorage.getItem('orders')) || [];
+                        let filteredOrders;
+
+                        switch (period) {
+                            case '7days':
+                                const sevenDaysAgo = new Date(currentDate.setDate(currentDate.getDate() - 7));
+                                filteredOrders = orders.filter(order => new Date(order.date) >= sevenDaysAgo);
+                                break;
+                            case '30days':
+                                const thirtyDaysAgo = new Date(currentDate.setDate(currentDate.getDate() - 30));
+                                filteredOrders = orders.filter(order => new Date(order.date) >= thirtyDaysAgo);
+                                break;
+                            default:
+                                filteredOrders = orders;
+                        }
+
+                        updateDashboardStats(filteredOrders);
+                    }
+
+                    // Modify updateDashboardStats to accept filtered orders
+                    function updateDashboardStats(filteredOrders = null) {
+                        const currentProducts = JSON.parse(localStorage.getItem('products')) || [];
+                        const orders = filteredOrders || JSON.parse(localStorage.getItem('orders')) || [];
+                        const users = JSON.parse(localStorage.getItem('users')) || [];
+                        
+                        // Update counters
+                        document.getElementById('totalProducts').textContent = currentProducts.length;
+                        document.getElementById('totalOrders').textContent = orders.length;
+                        document.getElementById('totalUsers').textContent = users.length;
+
+                        // Calculate total revenue from filtered orders
+                        const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+                        document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+
+                        // Destroy existing charts if they exist
+                        const existingOrderChart = Chart.getChart('orderChart');
+                        const existingRevenueChart = Chart.getChart('revenueChart');
+                        if (existingOrderChart) existingOrderChart.destroy();
+                        if (existingRevenueChart) existingRevenueChart.destroy();
+
+                        // Create order statistics chart
+                        const orderChart = new Chart(document.getElementById('orderChart'), {
+                            type: 'bar',
+                            data: {
+                                labels: ['Products', 'Orders', 'Users'],
+                                datasets: [{
+                                    label: 'Total Count',
+                                    data: [currentProducts.length, orders.length, users.length],
+                                    backgroundColor: [
+                                        'rgba(54, 162, 235, 0.5)',
+                                        'rgba(75, 192, 192, 0.5)',
+                                        'rgba(255, 206, 86, 0.5)'
+                                    ],
+                                    borderColor: [
+                                        'rgba(54, 162, 235, 1)',
+                                        'rgba(75, 192, 192, 1)',
+                                        'rgba(255, 206, 86, 1)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: {
+                                        beginAtZero: true
+                                    }
+                                }
+                            }
+                        });
+
+                        // Create revenue distribution pie chart
+                        const revenueChart = new Chart(document.getElementById('revenueChart'), {
+                            type: 'pie',
+                            data: {
+                                labels: ['Products Revenue', 'Shipping', 'Tax'],
+                                datasets: [{
+                                    data: [totalRevenue * 0.8, totalRevenue * 0.1, totalRevenue * 0.1],
+                                    backgroundColor: [
+                                        'rgba(255, 99, 132, 0.5)',
+                                        'rgba(54, 162, 235, 0.5)',
+                                        'rgba(255, 206, 86, 0.5)'
+                                    ],
+                                    borderColor: [
+                                        'rgba(255, 99, 132, 1)',
+                                        'rgba(54, 162, 235, 1)',
+                                        'rgba(255, 206, 86, 1)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            }
+                        });
+                    }
+
+                    // Initialize dashboard with all-time data
+                    updateDashboardStats();
+                </script>
+                <!-- Dashboard Summary -->
+                <div class="row">
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Products</h5>
+                                <p class="card-text h2" id="totalProducts">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Add this to the dashboard summary cards -->
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Users</h5>
+                                <p class="card-text h2" id="totalUsers">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Orders</h5>
+                                <p class="card-text h2" id="totalOrders">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add new revenue card -->
+                <div class="row">
+                    <div class="col-md-4 mb-4">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Revenue</h5>
+                                <p class="card-text h2" id="totalRevenue">$0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add charts section -->
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Order Statistics</h5>
+                                <canvas id="orderChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Revenue Distribution</h5>
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
